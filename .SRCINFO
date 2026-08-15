@@ -1,0 +1,14 @@
+pkgbase = ansulev-gtk-themes
+	pkgdesc = GTK themes — ANSULEV workspace
+	pkgver = 1.0
+	pkgrel = 1
+	url = https://github.com/ansulev/gtk-themes
+	arch = any
+	license = GPL3
+	optdepends = xfwm4: xfwm4 window decorations
+	optdepends = plank: plank dock theme
+	optdepends = marco: metacity-1 decorations, for a MATE session
+	options = !strip
+	options = !emptydirs
+
+pkgname = ansulev-gtk-themes
