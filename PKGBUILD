@@ -22,10 +22,11 @@ license=('GPL3')
 options=(!strip !emptydirs)
 # Orchis-Dark-Pro is generated from the installed orchis-theme at build time, so an
 # Orchis update reaches it with a rebuild. Two fixes over Arch's orchis-theme 2026_07_07:
-#  1. xfwm4: the -xhdpi variant scales its frame XPMs but ships the 36 button SVGs as
-#     byte-identical 1x copies (34x36), so on a 2x panel the title bar doubles and the
-#     buttons do not. Each <svg> width/height is doubled, viewBox kept: same vector, crisp.
-#     The menu dot goes from r=2 to r=4, so it weighs the same as the 10px close/max/min glyphs.
+#  1. xfwm4: the -hdpi/-xhdpi variants scale their frame XPMs but ship the 36 button SVGs as
+#     byte-identical 1x copies (34x36), so on a HiDPI panel the title bar grows and the
+#     buttons do not. Each <svg> width/height is scaled (1.5x / 2x), viewBox kept: same
+#     vector, crisp. The menu dot goes r=2 -> 3 / 4, matching the close/max/min glyphs.
+#     Three themes: Orchis-Dark-Pro (GTK + 1x xfwm4), -hdpi and -xhdpi (xfwm4 only).
 #  2. GTK: checked/indeterminate check + radio use the green success colour #81C995 — they
 #     read as "OK", not "on". They take the accent #3281EA instead, which is what upstream's
 #     --tweaks primary does; real success states (entry.success, levelbar full) stay green.
@@ -51,7 +52,11 @@ package() {
 		done
 	done
 	_orchis_gtk "$_themesdir/Orchis-Dark-Pro"
-	_orchis_xfwm4 "$_themesdir/Orchis-Dark-Pro/xfwm4"
+	# xfwm4 cannot scale at runtime: one theme per scale, xfwm4's own -hdpi/-xhdpi naming.
+	# autoscale-displays picks the suffix from the display tier.
+	_orchis_xfwm4 Orchis-Dark       "$_themesdir/Orchis-Dark-Pro"       1   2
+	_orchis_xfwm4 Orchis-Dark-hdpi  "$_themesdir/Orchis-Dark-Pro-hdpi"  1.5 3
+	_orchis_xfwm4 Orchis-Dark-xhdpi "$_themesdir/Orchis-Dark-Pro-xhdpi" 2   4
 	find "$_themesdir" -type d -exec chmod 755 {} +
 	find "$_themesdir" -type f -exec chmod 644 {} +
 }
@@ -87,18 +92,24 @@ _orchis_gtk2_assets() {
 	fi
 }
 
-# xfwm4 from the -xhdpi variant: frame pixmaps as shipped, every SVG declared at 2x,
-# and a menu dot twice the radius.
+# _orchis_xfwm4 <src-theme> <dst-theme> <scale> <dot-radius>
+# Frame pixmaps as shipped (upstream scales them per variant); every button SVG declared at
+# <scale> (viewBox kept), menu dot r=2 -> <dot-radius>. At scale 1 the SVGs are already native.
 _orchis_xfwm4() {
-	local _src=/usr/share/themes/Orchis-Dark-xhdpi/xfwm4 _dst="$1"
-	install -d "$_dst"
-	cp -a "$_src"/. "$_dst"/
-	perl -pi -e 's/(<svg\b[^>]*?)width="([\d.]+)"\s+height="([\d.]+)"/$1 . "width=\"" . ($2*2) . "\" height=\"" . ($3*2) . "\""/e' "$_dst"/*.svg
-	sed -i 's/<circle \(cx="272" cy="571.362"\) r="2"/<circle \1 r="4"/' "$_dst"/menu-*.svg
-	if grep -l '<svg[^>]*width="34" height="36"' "$_dst"/*.svg >/dev/null; then
-		echo "Orchis-Dark-Pro: unscaled SVG left behind" >&2; return 1
+	local _src=/usr/share/themes/$1 _dst=$2 _k=$3 _r=$4 _name=${2##*/}
+	[[ -d "$_src/xfwm4" ]] || { echo "orchis-theme not installed: $_src/xfwm4" >&2; return 1; }
+	install -d "$_dst/xfwm4"
+	cp -a "$_src/xfwm4"/. "$_dst/xfwm4"/
+	# Upstream -hdpi/-xhdpi ship no index.theme; the base one comes from _orchis_gtk.
+	[[ -f "$_dst/index.theme" ]] ||
+		printf '[Desktop Entry]\nType=X-GNOME-Metatheme\nName=%s\nComment=xfwm4 only\n' "$_name" > "$_dst/index.theme"
+	[[ "$_k" == 1 ]] && return 0
+	K=$_k perl -pi -e 's/(<svg\b[^>]*?)width="([\d.]+)"\s+height="([\d.]+)"/$1 . "width=\"" . ($2*$ENV{K}) . "\" height=\"" . ($3*$ENV{K}) . "\""/e' "$_dst"/xfwm4/*.svg
+	sed -i "s/<circle \(cx=\"272\" cy=\"571.362\"\) r=\"2\"/<circle \1 r=\"$_r\"/" "$_dst"/xfwm4/menu-*.svg
+	if grep -l '<svg[^>]*width="34" height="36"' "$_dst"/xfwm4/*.svg >/dev/null; then
+		echo "$_name: unscaled SVG left behind" >&2; return 1
 	fi
-	if grep -l 'r="2"' "$_dst"/menu-*.svg >/dev/null; then
-		echo "Orchis-Dark-Pro: menu dot not enlarged" >&2; return 1
+	if grep -l 'r="2"' "$_dst"/xfwm4/menu-*.svg >/dev/null; then
+		echo "$_name: menu dot not enlarged" >&2; return 1
 	fi
 }
