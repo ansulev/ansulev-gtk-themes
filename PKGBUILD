@@ -17,7 +17,7 @@ pkgver=1.0
 pkgrel=1
 pkgdesc="GTK themes — ANSULEV workspace"
 arch=('any')
-url="https://github.com/ansulev/gtk-themes"
+url="https://github.com/ansulev/ansulev-gtk-themes"
 license=('GPL3')
 options=(!strip !emptydirs)
 # Orchis-Dark-Pro is generated from the installed orchis-theme at build time, so an
